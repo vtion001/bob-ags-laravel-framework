@@ -21,3 +21,12 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# FastAPI
+fastapi/.env
+fastapi/__pycache__
+fastapi/app/__pycache__
+fastapi/app/models/__pycache__
+fastapi/app/routers/__pycache__
+fastapi/app/services/__pycache__
+fastapi/app/jobs/__pycache__
