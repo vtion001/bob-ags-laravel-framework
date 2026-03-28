@@ -17,14 +17,29 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard');
     }
 
-    public function monitor()
-    {
-        return view('dashboard.monitor.index');
-    }
-
     public function history()
     {
-        return view('dashboard.history.index');
+        return Inertia::render('History');
+    }
+
+    public function monitor()
+    {
+        return Inertia::render('Monitor');
+    }
+
+    public function settings()
+    {
+        return Inertia::render('Settings');
+    }
+
+    public function callDetail()
+    {
+        return Inertia::render('CallDetail', ['callId' => null]);
+    }
+
+    public function showCallDetail($id)
+    {
+        return Inertia::render('CallDetail', ['callId' => $id]);
     }
 
     public function agents()
@@ -32,18 +47,8 @@ class DashboardController extends Controller
         return view('dashboard.agents.index');
     }
 
-    public function settings()
-    {
-        return view('dashboard.settings.index');
-    }
-
     public function qaLogs()
     {
         return view('dashboard.qa-logs.index');
-    }
-
-    public function callDetail($id)
-    {
-        return view('dashboard.calls.show', ['callId' => $id]);
     }
 }
