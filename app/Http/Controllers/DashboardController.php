@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\BobApiService;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
@@ -13,7 +14,7 @@ class DashboardController extends Controller
 
     public function index()
     {
-        return view('dashboard.dashboard');
+        return Inertia::render('Dashboard');
     }
 
     public function monitor()
