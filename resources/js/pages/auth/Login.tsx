@@ -10,7 +10,7 @@ export default function Login({ status }: { status?: string }) {
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        post(route('login.store'));
+        post(route('login'));
     };
 
     return (
