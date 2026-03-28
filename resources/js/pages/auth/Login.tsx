@@ -61,8 +61,9 @@ export default function Login({ status }: { status?: string }) {
                     </div>
 
                     <div className="flex items-center justify-between">
-                        <label className="flex items-center">
+                        <label htmlFor="remember" className="flex items-center">
                             <input
+                                id="remember"
                                 type="checkbox"
                                 checked={data.remember}
                                 onChange={(e) => setData('remember', e.target.checked)}
