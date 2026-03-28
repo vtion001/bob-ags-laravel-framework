@@ -22,3 +22,6 @@ Route::middleware('auth')->group(function () {
     Route::get('call-detail', [DashboardController::class, 'callDetail'])->name('call-detail');
     Route::get('call-detail/{id}', [DashboardController::class, 'showCallDetail'])->name('call-detail.show');
 });
+
+// Load auth routes
+require __DIR__.'/auth.php';
