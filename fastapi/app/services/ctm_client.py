@@ -6,7 +6,7 @@ settings = get_settings()
 
 
 class CTMClient:
-    """Makes authenticated requests to CTM API — replicates Laravel's CTM\Client"""
+    r"""Makes authenticated requests to CTM API — replicates Laravel's CTM\Client"""
 
     def __init__(self):
         self.base_url = settings.ctm_base_url
