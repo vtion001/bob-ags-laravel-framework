@@ -1,31 +1,21 @@
 <?php
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use Illuminate\Support\Facades\Route;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-*/
+Route::get('/', function () {
+    return ['Laravel' => app()->version()];
+});
 
-// Guest routes (not authenticated)
+// Guest routes for login page
 Route::middleware('guest')->group(function () {
-    Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+    Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])->name('login.store');
 });
 
 // Authenticated routes
 Route::middleware('auth')->group(function () {
-    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-    // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/dashboard/monitor', [DashboardController::class, 'monitor'])->name('dashboard.monitor');
-    Route::get('/dashboard/history', [DashboardController::class, 'history'])->name('dashboard.history');
-    Route::get('/dashboard/agents', [DashboardController::class, 'agents'])->name('dashboard.agents');
-    Route::get('/dashboard/settings', [DashboardController::class, 'settings'])->name('dashboard.settings');
-    Route::get('/dashboard/qa-logs', [DashboardController::class, 'qaLogs'])->name('dashboard.qa-logs');
-    Route::get('/dashboard/calls/{id}', [DashboardController::class, 'callDetail'])->name('dashboard.calls.show');
+    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 });
+
+require __DIR__.'/auth.php';
