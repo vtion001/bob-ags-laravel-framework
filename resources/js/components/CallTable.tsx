@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import Link from 'next/link'
+import { Link } from '@inertiajs/react'
 import { Call } from '@/lib/ctm'
 import Card from './ui/Card'
 import { extractGroup } from '@/lib/monitor/helpers'
