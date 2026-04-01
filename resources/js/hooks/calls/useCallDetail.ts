@@ -65,7 +65,7 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
 
   const storeAnalysisToSupabase = useCallback(async (analysisData: AnalysisResult) => {
     try {
-      const res = await fetch('/api/calls', {
+      const res = await fetch('/api/calls', { credentials: 'include' }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,7 +93,7 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
 
   const fetchCallDetails = useCallback(async () => {
     try {
-      const res = await fetch(`/api/calls?ctmCallId=${callId}&cacheOnly=true`)
+      const res = await fetch(`/api/calls?ctmCallId=${callId}&cacheOnly=true`, { credentials: 'include' })
       const data = await res.json()
 
       if (data.calls && data.calls.length > 0) {
@@ -115,7 +115,7 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
 
   const fetchCallFromCTM = useCallback(async () => {
     try {
-      const ctmRes = await fetch(`/api/ctm/calls/${callId}`)
+      const ctmRes = await fetch(`/api/ctm/calls/${callId}`, { credentials: 'include' })
       if (!ctmRes.ok) throw new Error('Call not found')
       const ctmData = await ctmRes.json()
       if (!ctmData.call) throw new Error('Call not found')
@@ -129,7 +129,7 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
     setTranscriptError(null)
     setIsTranscribing(true)
     try {
-      const res = await fetch(`/api/ctm/calls/${callId}/transcript`)
+      const res = await fetch(`/api/ctm/calls/${callId}/transcript`, { credentials: 'include' })
       const data = await res.json()
 
       if (data.transcript) {
@@ -151,7 +151,7 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
   const handleAnalyze = useCallback(async (): Promise<boolean> => {
     setIsAnalyzing(true)
     try {
-      const res = await fetch('/api/ctm/calls/analyze', {
+      const res = await fetch('/api/ctm/calls/analyze', { credentials: 'include' }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callIds: [callId] }),
@@ -250,7 +250,7 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
         }
 
         if (!hasCachedAnalysis) {
-          await fetch('/api/calls', {
+          await fetch('/api/calls', { credentials: 'include' }), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ calls: [ctmCall] }),

@@ -20,7 +20,7 @@ class ActiveCallsController extends Controller
     {
         try {
             $params = ['status' => 'in_progress'];
-            $calls = $this->ctm->calls->getCalls($params);
+            $calls = $this->ctm->calls->getCallsOnly($params);
             return response()->json(['data' => $calls]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);

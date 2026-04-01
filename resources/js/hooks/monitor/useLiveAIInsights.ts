@@ -156,7 +156,7 @@ export function useLiveAIInsights(options: UseLiveAIInsightsOptions = {}): UseLi
     lastAnalysisRef.current = Date.now()
 
     try {
-      const response = await fetch('/api/openrouter', {
+      const response = await fetch('/api/openrouter', { credentials: 'include' }), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -197,7 +197,7 @@ export function useLiveAIInsights(options: UseLiveAIInsightsOptions = {}): UseLi
 
       // Save to Supabase log
       try {
-        await fetch('/api/live-analysis-logs', {
+        await fetch('/api/live-analysis-logs', { credentials: 'include' }), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -20,7 +20,7 @@ export function useActiveCalls(defaultInterval: number = 3): UseActiveCallsRetur
 
   const fetchActiveCalls = useCallback(async () => {
     try {
-      const res = await fetch('/api/ctm/active-calls')
+      const res = await fetch('/api/ctm/active-calls', { credentials: 'include' }))
       if (!res.ok) throw new Error('Failed to fetch active calls')
       const data = await res.json()
       setActiveCalls(data.calls || [])

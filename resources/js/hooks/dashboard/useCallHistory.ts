@@ -84,7 +84,7 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
   useEffect(() => {
     const fetchAgentsAndGroups = async () => {
       try {
-        const res = await fetch('/api/ctm/agents')
+        const res = await fetch('/api/ctm/agents', { credentials: 'include' })
         if (res.ok) {
           const data = await res.json()
           // Laravel returns { data: [...agents...] }
@@ -141,7 +141,7 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
 
       if (mode === 'initial') {
         // Fetch from Laravel API proxy — returns { data: [...calls...] }
-        const res = await fetch(`/api/ctm/calls?limit=200${agentParam}`)
+        const res = await fetch(`/api/ctm/calls?limit=200${agentParam}`, { credentials: 'include' })
         if (!res.ok) throw new Error('Failed to fetch calls')
         const data = await res.json()
         const calls: Call[] = dedupeCalls(data.data || [])
@@ -323,7 +323,7 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
 
     try {
       const normalizedPhone = searchQuery.replace(/\D/g, '')
-      const res = await fetch(`/api/ctm/calls/history/search?phone=${encodeURIComponent(normalizedPhone)}&hours=8760`)
+      const res = await fetch(`/api/ctm/calls/history/search?phone=${encodeURIComponent(normalizedPhone)}&hours=8760`, { credentials: 'include' })
       
       if (!res.ok) {
         throw new Error('Search failed')

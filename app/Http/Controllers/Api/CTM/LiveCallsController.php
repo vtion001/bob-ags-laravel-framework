@@ -54,7 +54,7 @@ class LiveCallsController extends Controller
             }
 
             // Get calls from CTM
-            $calls = $this->ctm->calls->getCalls($params);
+            $calls = $this->ctm->calls->getCallsOnly($params);
             $transformed = Transformer::transformCalls($calls);
 
             // If not admin, filter by assignedAgentId or assignedGroupId from user_settings

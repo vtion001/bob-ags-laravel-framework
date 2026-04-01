@@ -36,7 +36,7 @@ return [
     ],
 
     'bob_api' => [
-        'url' => env('BOB_API_URL', 'http://localhost:8000'),
+        'url' => env('BOB_API_URL', 'http://localhost:8080'),
         'key' => env('BOB_API_KEY', ''),
     ],
 
@@ -53,6 +53,10 @@ return [
 
     'fastapi' => [
         'url' => env('FASTAPI_URL', 'http://localhost:8000'),
+    ],
+
+    'assemblyai' => [
+        'api_key' => env('ASSEMBLYAI_API_KEY', ''),
     ],
 
 ];

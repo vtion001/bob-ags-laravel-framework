@@ -144,7 +144,7 @@ export function useMonitorPage(options?: UseMonitorPageOptions): UseMonitorPageR
   const fetchActiveCalls = useCallback(async () => {
     try {
       setCallsError(null)
-      const res = await fetch("/api/ctm/active-calls")
+      const res = await fetch("/api/ctm/active-calls", { credentials: 'include' })
       if (res.status === 401) {
         setCallsError("Session expired. Please refresh the page or log in again.")
         return

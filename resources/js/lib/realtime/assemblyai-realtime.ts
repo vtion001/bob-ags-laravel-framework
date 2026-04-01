@@ -65,7 +65,7 @@ export class AssemblyAIRealtime {
 
     try {
       console.log('[AAI] Fetching temporary token from server...');
-      const tokenResponse = await fetch('/api/assemblyai/token', { method: 'GET' });
+      const tokenResponse = await fetch('/api/assemblyai/token', { method: 'GET', credentials: 'include' });
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
         throw new Error(`Failed to get AssemblyAI token: ${tokenResponse.status} ${errorText}`);
