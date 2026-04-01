@@ -87,30 +87,21 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
         const res = await fetch('/api/ctm/agents')
         if (res.ok) {
           const data = await res.json()
+          // Laravel returns { data: [...agents...] }
+          const agentsData = data.data || []
           console.log('[useCallHistory] API /api/ctm/agents response:', {
-            agentsCount: data.agents?.length,
-            userGroupsCount: data.userGroups?.length,
-            firstAgent: data.agents?.[0],
-            firstGroup: data.userGroups?.[0]
+            agentsCount: agentsData.length,
+            firstAgent: agentsData[0]
           })
-          if (data.agents) {
-            const mappedAgents = data.agents.map((agent: any) => ({
+          if (agentsData.length > 0) {
+            const mappedAgents = agentsData.map((agent: any) => ({
               id: agent.id || agent.uid?.toString() || '',
-              name: agent.name || 'Unknown',
+              name: agent.name || agent.full_name || 'Unknown',
               agent_id: agent.uid?.toString() || agent.id || '',
               email: agent.email || '',
             }))
             console.log('[useCallHistory] Mapped agentProfiles:', mappedAgents.slice(0, 3))
             setAgentProfiles(mappedAgents)
-          }
-          if (data.userGroups) {
-            console.log('[useCallHistory] userGroups:', data.userGroups.map((g: any) => ({
-              id: g.id,
-              name: g.name,
-              userIdsCount: g.userIds?.length,
-              firstFewUserIds: g.userIds?.slice(0, 5)
-            })))
-            setUserGroups(data.userGroups)
           }
         }
       } catch (err) {
@@ -149,37 +140,21 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
       const agentParam = agentIdFilter ? `&agentId=${encodeURIComponent(agentIdFilter)}` : ''
 
       if (mode === 'initial') {
-        const cacheRes = await fetch(`/api/calls?cacheOnly=true&hours=168&limit=200${agentParam}`)
-        const cacheData = cacheRes.ok ? await cacheRes.json() : null
-        const cacheCalls: Call[] = dedupeCalls(cacheData?.calls || [])
-
-        if (cacheCalls.length > 0) {
-          setAllCalls(cacheCalls)
-          setIsLoading(false)
+        // Fetch from Laravel API proxy — returns { data: [...calls...] }
+        const res = await fetch(`/api/ctm/calls?limit=200${agentParam}`)
+        if (!res.ok) throw new Error('Failed to fetch calls')
+        const data = await res.json()
+        const calls: Call[] = dedupeCalls(data.data || [])
+        if (calls.length > 0) {
+          setAllCalls(calls)
         }
-
-        const [deltaRes, fullRes] = await Promise.all([
-          fetch(`/api/calls?mode=delta&limit=200${agentParam}`),
-          cacheCalls.length === 0 ? fetch(`/api/calls?limit=200&hours=168${agentParam}`) : Promise.resolve(null),
-        ])
-
-        const deltaData = deltaRes?.ok ? await deltaRes.json() : null
-        const fullData = fullRes?.ok ? await fullRes.json() : null
-        const deltaCalls: Call[] = dedupeCalls(deltaData?.calls || [])
-        const fullCalls: Call[] = dedupeCalls(fullData?.calls || [])
-
-        if (cacheCalls.length === 0 && fullCalls.length > 0) {
-          setAllCalls(fullCalls)
-        }
-        if (deltaCalls.length > 0) mergeNewCalls(deltaCalls)
       } else {
-        const url = mode === 'refresh'
-          ? `/api/calls?mode=delta&limit=200${agentParam}`
-          : `/api/calls?mode=delta&limit=200${agentParam}`
+        // Poll for new calls — only fetch latest via the history endpoint
+        const url = `/api/ctm/calls?limit=200${agentParam}`
         const res = await fetch(url)
         if (!res.ok) throw new Error('Failed to fetch calls')
         const data = await res.json()
-        const incoming: Call[] = dedupeCalls(data.calls || [])
+        const incoming: Call[] = dedupeCalls(data.data || [])
         if (incoming.length > 0) mergeNewCalls(incoming)
       }
     } catch (err) {
@@ -348,16 +323,17 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
 
     try {
       const normalizedPhone = searchQuery.replace(/\D/g, '')
-      const res = await fetch(`/api/ctm/calls/search?phone=${encodeURIComponent(normalizedPhone)}&hours=8760`)
+      const res = await fetch(`/api/ctm/calls/history/search?phone=${encodeURIComponent(normalizedPhone)}&hours=8760`)
       
       if (!res.ok) {
         throw new Error('Search failed')
       }
 
       const data = await res.json()
-      const searchedCalls: Call[] = data.calls || []
+      // Laravel returns { data: [...calls...] }
+      const searchedCalls: Call[] = dedupeCalls(data.data || [])
       
-      console.log('[useCallHistory] Phone search results from CTM:', {
+      console.log('[useCallHistory] Phone search results:', {
         searchQuery,
         normalizedPhone,
         resultsCount: searchedCalls.length

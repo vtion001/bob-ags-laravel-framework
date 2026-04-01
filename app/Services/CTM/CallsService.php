@@ -30,7 +30,12 @@ class CallsService
         }
 
         // Build query — exclude 'after' cursor since it's added separately
-        $queryParams = array_filter($params, fn($k) => $k !== 'after', ARRAY_FILTER_USE_KEY);
+        // CTM uses 'per_page' not 'limit'
+        $queryParams = array_filter($params, fn($k) => !in_array($k, ['after', 'limit']), ARRAY_FILTER_USE_KEY);
+        if (isset($queryParams['limit'])) {
+            $queryParams['per_page'] = $queryParams['limit'];
+            unset($queryParams['limit']);
+        }
         $query = http_build_query($queryParams);
         $endpoint = "/accounts/{$this->client->getAccountId()}/calls.json";
         if ($query) {
@@ -153,13 +158,16 @@ class CallsService
     /**
      * Search calls by phone number
      */
+    /**
+     * Search calls by phone number — fetches first page only
+     */
     public function searchCallsByPhone(string $phone, int $hours = 8760): array
     {
         $params = [
             'phone_number' => $phone,
             'hours' => $hours,
         ];
-        return $this->getCalls($params);
+        return $this->getCallsOnly($params);
     }
 
     /**
@@ -172,6 +180,6 @@ class CallsService
             'order_by' => 'start_time',
             'order_dir' => 'desc',
         ];
-        return $this->getCalls($params);
+        return $this->getCallsOnly($params);
     }
 }

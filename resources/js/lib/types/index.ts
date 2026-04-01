@@ -94,6 +94,9 @@ export interface GetCallsParams {
   status?: string | null
   sourceId?: string | null
   agentId?: string | null
+  fromDate?: string   // ISO date string e.g. "2026-03-01"
+  toDate?: string     // ISO date string e.g. "2026-03-31"
+  after?: string      // cursor for pagination
 }
 
 export interface SearchNumbersParams {
