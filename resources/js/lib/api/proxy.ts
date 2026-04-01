@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabase } from '@/lib/supabase/server'
 
-const LARAVEL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+const LARAVEL_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
 export interface LaravelErrorResponse {
   success: false

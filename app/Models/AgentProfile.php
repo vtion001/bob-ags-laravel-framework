@@ -10,6 +10,8 @@ class AgentProfile extends Model
         'ctm_agent_id',
         'name',
         'email',
+        'phone',
+        'notes',
         'team',
         'status',
     ];

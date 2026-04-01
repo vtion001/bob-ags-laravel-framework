@@ -27,11 +27,20 @@ class AgentProfilesController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'agent_id' => 'nullable|string|max:255',
             'ctm_agent_id' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
             'team' => 'nullable|string|max:255',
             'status' => 'nullable|string|in:active,inactive',
         ]);
+
+        // Map agent_id to ctm_agent_id if provided
+        if (isset($validated['agent_id']) && !isset($validated['ctm_agent_id'])) {
+            $validated['ctm_agent_id'] = $validated['agent_id'];
+        }
+        unset($validated['agent_id']);
 
         $profile = AgentProfile::create($validated);
         return response()->json(['data' => $profile], 201);
@@ -49,11 +58,20 @@ class AgentProfilesController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
+            'agent_id' => 'nullable|string|max:255',
             'ctm_agent_id' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:255',
+            'notes' => 'nullable|string',
             'team' => 'nullable|string|max:255',
             'status' => 'nullable|string|in:active,inactive',
         ]);
+
+        // Map agent_id to ctm_agent_id if provided
+        if (isset($validated['agent_id']) && !isset($validated['ctm_agent_id'])) {
+            $validated['ctm_agent_id'] = $validated['agent_id'];
+        }
+        unset($validated['agent_id']);
 
         $profile->update($validated);
         return response()->json(['data' => $profile]);
@@ -69,6 +87,33 @@ class AgentProfilesController extends Controller
     public function sync(Request $request): JsonResponse
     {
         try {
+            $agents = $request->input('agents', []);
+
+            if (!empty($agents)) {
+                // Bulk import from CTM agents list
+                $created = 0;
+                $skipped = 0;
+
+                foreach ($agents as $agent) {
+                    $existing = AgentProfile::where('ctm_agent_id', $agent['id'])->first();
+                    if ($existing) {
+                        $skipped++;
+                        continue;
+                    }
+
+                    AgentProfile::create([
+                        'ctm_agent_id' => $agent['id'],
+                        'name' => $agent['name'],
+                        'email' => $agent['email'] ?? null,
+                        'status' => 'active',
+                    ]);
+                    $created++;
+                }
+
+                return response()->json(['data' => ['created' => $created, 'skipped' => $skipped]]);
+            }
+
+            // Fallback: sync from CTM directly
             $result = $this->agentProfileService->syncFromCtm();
             return response()->json(['data' => $result]);
         } catch (\Exception $e) {

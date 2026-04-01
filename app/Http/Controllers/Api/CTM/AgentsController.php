@@ -23,7 +23,21 @@ class AgentsController extends Controller
     {
         try {
             $agents = $this->agentProfileService->getFilteredAgents();
-            return response()->json(['data' => $agents]);
+            // Re-index array to remove numeric keys from array_filter
+            return response()->json(['data' => array_values($agents)]);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get all CTM agents (unfiltered) for browsing and selecting agents to add.
+     */
+    public function all(Request $request): JsonResponse
+    {
+        try {
+            $agents = $this->ctm->agents->getAgents();
+            return response()->json(['data' => ['agents' => $agents]]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
         }

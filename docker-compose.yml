@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # Laravel Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bob-ags-app
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - APP_NAME="MCA PDF Scrubber"
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=${APP_KEY:-}
+      - APP_URL=http://localhost:8080
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/database/database.sqlite
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=null
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=file
+      - SESSION_DRIVER=file
+      - SESSION_DOMAIN=localhost
+      - QUEUE_CONNECTION=sync
+      - CTM_ACCESS_KEY=${CTM_ACCESS_KEY:-}
+      - CTM_SECRET_KEY=${CTM_SECRET_KEY:-}
+      - CTM_ACCOUNT_ID=${CTM_ACCOUNT_ID:-}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - FASTAPI_URL=http://fastapi:8000
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
+      - OPENROUTER_API_URL=${OPENROUTER_API_URL:-}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-}
+      - DOCLING_SERVICE_URL=${DOCLING_SERVICE_URL:-}
+      - MAX_UPLOAD_SIZE=${MAX_UPLOAD_SIZE:-}
+      - ASSEMBLYAI_API_KEY=${ASSEMBLYAI_API_KEY:-}
+    volumes:
+      - .:/var/www
+      - ./storage:/var/www/storage
+      - ./bootstrap/cache:/var/www/bootstrap/cache
+    depends_on:
+      - redis
+      - fastapi
+    networks:
+      - bob-ags-network
+
+  # Vite Development Server
+  vite:
+    build:
+      context: .
+      dockerfile: Dockerfile.vite
+    container_name: bob-ags-vite
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_APP_URL=http://localhost:8000
+    depends_on:
+      - app
+    networks:
+      - bob-ags-network
+
+  # FastAPI Backend
+  fastapi:
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
+    container_name: bob-ags-fastapi
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      - CTM_ACCESS_KEY=${CTM_ACCESS_KEY:-}
+      - CTM_SECRET_KEY=${CTM_SECRET_KEY:-}
+      - CTM_ACCOUNT_ID=${CTM_ACCOUNT_ID:-}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - REDIS_DB=0
+    volumes:
+      - ./fastapi:/app
+      - /app/__pycache__
+    depends_on:
+      - redis
+    networks:
+      - bob-ags-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: bob-ags-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bob-ags-network
+
+networks:
+  bob-ags-network:
+    driver: bridge
+
+volumes:
+  redis_data:

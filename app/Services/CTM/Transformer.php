@@ -9,45 +9,86 @@ class Transformer
      */
     public static function transformCall(array $call): array
     {
+        $agentId = $call['agent_id'] ?? ($call['agent']['id'] ?? null);
+        $agentName = $call['agent']['name'] ?? ($call['agent_name'] ?? null);
+        $agentEmail = $call['agent']['email'] ?? ($call['agent_email'] ?? null);
+
         return [
             'id' => $call['id'] ?? null,
             'call_id' => $call['call_id'] ?? $call['id'] ?? null,
-            'from_number' => $call['from_number'] ?? $call['phone_number'] ?? null,
-            'to_number' => $call['to_number'] ?? $call['tracking_number'] ?? null,
-            'caller_name' => $call['caller_name'] ?? null,
-            'caller_city' => $call['caller_city'] ?? null,
-            'caller_state' => $call['caller_state'] ?? null,
-            'caller_country' => $call['caller_country'] ?? null,
+
+            // Phone fields matching frontend Call interface
+            'phone' => $call['from_number'] ?? $call['phone_number'] ?? null,
+            'callerNumber' => $call['from_number'] ?? $call['phone_number'] ?? null,
+            'trackingNumber' => $call['to_number'] ?? $call['tracking_number'] ?? null,
+            'destinationNumber' => $call['to_number'] ?? $call['tracking_number'] ?? null,
+            'poolNumber' => $call['pool_number'] ?? null,
+            'didNumber' => $call['did_number'] ?? null,
+
+            // Person info
+            'name' => $call['caller_name'] ?? null,
+            'city' => $call['caller_city'] ?? null,
+            'state' => $call['caller_state'] ?? null,
+            'postalCode' => $call['caller_zip'] ?? $call['postal_code'] ?? null,
+
+            // Call details matching frontend Call interface
+            'direction' => $call['direction'] ?? 'inbound',
+            'duration' => (int) ($call['duration'] ?? 0),
+            'status' => self::normalizeStatus($call['status'] ?? $call['call_status'] ?? 'completed'),
+            'timestamp' => $call['start_time'] ?? $call['created_at'] ?? now()->toIso8601String(),
+
+            // Agent - nested object matching frontend Agent interface
+            'agent' => ($agentId || $agentName) ? [
+                'id' => (string) $agentId,
+                'name' => $agentName,
+                'email' => $agentEmail,
+            ] : null,
+
+            // Other fields
+            'source' => $call['source'] ?? null,
+            'sourceId' => $call['source_id'] ?? null,
+            'accountId' => $call['account_id'] ?? null,
+            'recordingUrl' => $call['recording_url'] ?? $call['recording'] ?? null,
             'transcript' => $call['transcript'] ?? null,
-            'recording_url' => $call['recording_url'] ?? $call['recording'] ?? null,
-            'recording_duration' => $call['recording_duration'] ?? null,
-            'status' => $call['status'] ?? $call['call_status'] ?? null,
-            'direction' => $call['direction'] ?? null,
-            'start_time' => $call['start_time'] ?? $call['created_at'] ?? null,
-            'end_time' => $call['end_time'] ?? $call['ended_at'] ?? null,
-            'duration' => $call['duration'] ?? null,
-            'wait_time' => $call['wait_time'] ?? null,
-            'talk_time' => $call['talk_time'] ?? null,
-            'agent_id' => $call['agent_id'] ?? ($call['agent']['id'] ?? null),
-            'agent_name' => $call['agent']['name'] ?? ($call['agent_name'] ?? null),
-            'agent_email' => $call['agent']['email'] ?? ($call['agent_email'] ?? null),
+            'talkTime' => (int) ($call['talk_time'] ?? 0),
+            'waitTime' => (int) ($call['wait_time'] ?? 0),
+            'ringTime' => (int) ($call['ring_time'] ?? 0),
+            'score' => isset($call['score']) ? (int) $call['score'] : null,
+            'starRating' => isset($call['star_rating']) ? (int) $call['star_rating'] : null,
+            'notes' => $call['notes'] ?? null,
+            'tags' => $call['tags'] ?? [],
+            'disposition' => $call['disposition'] ?? null,
+            'disposition_name' => $call['disposition_name'] ?? null,
+
+            // Legacy/additional fields
             'user_group_id' => $call['user_group_id'] ?? null,
             'user_group_name' => $call['user_group_name'] ?? null,
-            'source' => $call['source'] ?? null,
-            'medium' => $call['medium'] ?? null,
             'campaign' => $call['campaign'] ?? null,
-            'referrer' => $call['referrer'] ?? null,
             'keyword' => $call['keyword'] ?? null,
             'first_call' => $call['first_call'] ?? false,
             'ivr_path' => $call['ivr_path'] ?? null,
             'queue_time' => $call['queue_time'] ?? null,
-            'disposition' => $call['disposition'] ?? null,
-            'disposition_name' => $call['disposition_name'] ?? null,
-            'annotations' => $call['annotations'] ?? [],
-            'tags' => $call['tags'] ?? [],
             'created_at' => $call['created_at'] ?? null,
             'updated_at' => $call['updated_at'] ?? null,
         ];
+    }
+
+    /**
+     * Normalize CTM status to frontend expected values
+     */
+    private static function normalizeStatus(string $status): string
+    {
+        $status = strtolower($status);
+        if (in_array($status, ['completed', 'done', 'finished', 'ended'])) {
+            return 'completed';
+        }
+        if (in_array($status, ['missed', 'failed', 'noanswer', 'no-answer'])) {
+            return 'missed';
+        }
+        if (in_array($status, ['active', 'in-progress', 'in_progress', 'ringing', 'incoming'])) {
+            return 'active';
+        }
+        return 'completed';
     }
 
     /**

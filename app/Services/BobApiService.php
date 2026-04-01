@@ -12,7 +12,7 @@ class BobApiService
 
     public function __construct()
     {
-        $this->baseUrl = config('services.bob_api.url', env('BOB_API_URL', 'http://localhost:8000'));
+        $this->baseUrl = config('services.bob_api.url', env('BOB_API_URL', 'http://localhost:8080'));
         $this->apiKey = config('services.bob_api.key', env('BOB_API_KEY', ''));
     }
 

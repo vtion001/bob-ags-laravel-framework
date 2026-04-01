@@ -64,7 +64,7 @@ export default function Login({ status }: { status?: string }) {
                                     type="email"
                                     value={data.email}
                                     onChange={(e) => setData('email', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900 focus:border-navy-900"
                                     placeholder="you@example.com"
                                     required
                                     autoFocus
@@ -80,7 +80,7 @@ export default function Login({ status }: { status?: string }) {
                                     type={showPassword ? 'text' : 'password'}
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 pr-10"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-900 focus:border-navy-900 pr-10"
                                     placeholder="Enter your password"
                                     required
                                     minLength={6}
@@ -111,7 +111,7 @@ export default function Login({ status }: { status?: string }) {
                                         type="checkbox"
                                         checked={data.remember}
                                         onChange={(e) => setData('remember', e.target.checked)}
-                                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                        className="h-4 w-4 text-navy-900 focus:ring-navy-900 border-gray-300 rounded"
                                     />
                                     <span className="ml-2 text-sm text-gray-600">Remember me</span>
                                 </label>
@@ -120,7 +120,7 @@ export default function Login({ status }: { status?: string }) {
                             <button
                                 type="submit"
                                 disabled={processing}
-                                className="w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-navy-900 hover:bg-navy-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                                className="w-full py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-navy-900 hover:bg-navy-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-navy-900 disabled:opacity-50"
                             >
                                 {processing ? 'Signing in...' : 'Sign In'}
                             </button>
@@ -128,7 +128,7 @@ export default function Login({ status }: { status?: string }) {
                     </div>
 
                     <p className="text-center text-sm text-navy-500 mt-6">
-                        Don&apos;t have an account?{' '}
+                        Don&apos;t have an account?&nbsp;
                         <a href="#" className="text-navy-700 font-medium hover:underline">
                             Contact admin
                         </a>

@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 interface CTMAgent {
   id: string
@@ -8,12 +7,13 @@ interface CTMAgent {
 }
 
 export interface AgentProfile {
-  id: string
+  id: number
   name: string
   agent_id: string
   email: string | null
   phone: string | null
   notes: string | null
+  status?: string
   created_at: string
 }
 
@@ -41,7 +41,7 @@ interface UseAgentProfilesReturn {
   fetchCTMAgents: () => Promise<void>
   handleSubmit: (e: React.FormEvent) => Promise<void>
   handleEdit: (agent: AgentProfile) => void
-  handleDelete: (id: string) => Promise<void>
+  handleDelete: (id: number) => Promise<void>
   handleAddCTMAgent: (ctmAgent: CTMAgent) => void
   handleAddAllCTMAgents: () => Promise<void>
   resetForm: () => void
@@ -55,6 +55,16 @@ const initialFormData = {
   notes: '',
 }
 
+async function safeJson(response: Response): Promise<any> {
+  const contentType = response.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    // HTML response (like redirect to login) - read as text for error message
+    const text = await response.text()
+    throw new Error(`Server returned ${response.status}: ${text.substring(0, 100)}`)
+  }
+  return response.json()
+}
+
 export function useAgentProfiles(): UseAgentProfilesReturn {
   const [agents, setAgents] = useState<AgentProfile[]>([])
   const [ctmAgents, setCtmAgents] = useState<CTMAgent[]>([])
@@ -66,21 +76,19 @@ export function useAgentProfiles(): UseAgentProfilesReturn {
   const [isLoading, setIsLoading] = useState(true)
   const [isFetchingCTM, setIsFetchingCTM] = useState(false)
 
-  const supabase = createClient()
-
   const fetchAgents = useCallback(async () => {
     setIsLoading(true)
-    const { data, error } = await supabase
-      .from('agent_profiles')
-      .select('*')
-      .order('name')
-
-    if (error) {
-      setError(error.message)
-    } else {
-      setAgents(data || [])
+    setError(null)
+    try {
+      const response = await fetch('/api/agent-profiles', { credentials: 'include' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch agent profiles`)
+      const data = await safeJson(response)
+      setAgents(data.data || [])
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   useEffect(() => {
@@ -91,10 +99,10 @@ export function useAgentProfiles(): UseAgentProfilesReturn {
     setIsFetchingCTM(true)
     setError(null)
     try {
-      const response = await fetch('/api/ctm/agents')
-      if (!response.ok) throw new Error('Failed to fetch CTM agents')
-      const data = await response.json()
-      setCtmAgents(data.agents || [])
+      const response = await fetch('/api/ctm/agents/all', { credentials: 'include' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to fetch CTM agents`)
+      const data = await safeJson(response)
+      setCtmAgents(data.data?.agents || [])
       setShowCTMFetch(true)
     } catch (err: any) {
       setError(err.message)
@@ -119,76 +127,62 @@ export function useAgentProfiles(): UseAgentProfilesReturn {
   const handleAddAllCTMAgents = useCallback(async () => {
     const existingAgentIds = agents.map(a => a.agent_id)
     const newAgents = ctmAgents.filter(a => !existingAgentIds.includes(a.id))
-    
+
     if (newAgents.length === 0) {
       setError('All CTM agents already exist in your profiles')
       return
     }
 
-    const { error } = await supabase.from('agent_profiles').insert(
-      newAgents.map(a => ({
-        name: a.name,
-        agent_id: a.id,
-        email: a.email,
-        phone: null,
-        notes: null,
-      }))
-    )
-
-    if (error) {
-      setError(error.message)
-    } else {
+    try {
+      const response = await fetch('/api/agent-profiles/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ agents: newAgents }),
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to add agents`)
+      await safeJson(response)
       fetchAgents()
       setShowCTMFetch(false)
+    } catch (err: any) {
+      setError(err.message)
     }
-  }, [agents, ctmAgents, supabase, fetchAgents])
+  }, [agents, ctmAgents, fetchAgents])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.name || !formData.agentId) {
       setError('Name and Agent ID are required')
       return
     }
 
-    if (editingAgent) {
-      const { error } = await supabase
-        .from('agent_profiles')
-        .update({
+    try {
+      const url = editingAgent ? `/api/agent-profiles/${editingAgent.id}` : '/api/agent-profiles'
+      const method = editingAgent ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           name: formData.name,
           agent_id: formData.agentId,
           email: formData.email || null,
           phone: formData.phone || null,
           notes: formData.notes || null,
-        })
-        .eq('id', editingAgent.id)
+        }),
+      })
 
-      if (error) {
-        setError(error.message)
-        return
-      }
-    } else {
-      const { error } = await supabase
-        .from('agent_profiles')
-        .insert([
-          {
-            name: formData.name,
-            agent_id: formData.agentId,
-            email: formData.email || null,
-            phone: formData.phone || null,
-            notes: formData.notes || null,
-          }
-        ])
+      if (!response.ok) throw new Error(editingAgent ? `HTTP ${response.status}: Failed to update agent` : `HTTP ${response.status}: Failed to create agent`)
 
-      if (error) {
-        setError(error.message)
-        return
-      }
+      await safeJson(response)
+      resetForm()
+      fetchAgents()
+    } catch (err: any) {
+      setError(err.message)
     }
-
-    resetForm()
-    fetchAgents()
-  }, [formData, editingAgent, supabase, fetchAgents])
+  }, [formData, editingAgent, fetchAgents])
 
   const resetForm = useCallback(() => {
     setFormData(initialFormData)
@@ -209,15 +203,20 @@ export function useAgentProfiles(): UseAgentProfilesReturn {
     setShowForm(true)
   }, [])
 
-  const handleDelete = useCallback(async (id: string) => {
-    if (confirm('Are you sure you want to delete this agent profile?')) {
-      await supabase
-        .from('agent_profiles')
-        .delete()
-        .eq('id', id)
+  const handleDelete = useCallback(async (id: number) => {
+    if (!confirm('Are you sure you want to delete this agent profile?')) return
+
+    try {
+      const response = await fetch(`/api/agent-profiles/${id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}: Failed to delete agent`)
       fetchAgents()
+    } catch (err: any) {
+      setError(err.message)
     }
-  }, [supabase, fetchAgents])
+  }, [fetchAgents])
 
   return {
     agents,

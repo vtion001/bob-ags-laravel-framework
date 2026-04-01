@@ -44,11 +44,11 @@ class DashboardController extends Controller
 
     public function agents()
     {
-        return view('dashboard.agents.index');
+        return Inertia::render('AgentProfiles');
     }
 
     public function qaLogs()
     {
-        return view('dashboard.qa-logs.index');
+        return Inertia::render('QALogs');
     }
 }
