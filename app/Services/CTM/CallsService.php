@@ -13,40 +13,112 @@ class CallsService
 
     /**
      * Get calls with optional filtering params
+     * Converts from_date/to_date to start_date/end_date (Unix timestamps) for CTM API
+     * IMPORTANT: Returns full response array with 'calls' and 'next_page' keys
+     * Use getCallsOnly() if you only need the calls array
      */
     public function getCalls(array $params = []): array
     {
-        $query = http_build_query($params);
+        // Normalize date params: CTM expects start_date/end_date as Unix timestamps
+        if (isset($params['from_date'])) {
+            $params['start_date'] = $this->dateToUnix($params['from_date']);
+            unset($params['from_date']);
+        }
+        if (isset($params['to_date'])) {
+            $params['end_date'] = $this->dateToUnix($params['to_date'], true);
+            unset($params['to_date']);
+        }
+
+        // Build query — exclude 'after' cursor since it's added separately
+        $queryParams = array_filter($params, fn($k) => $k !== 'after', ARRAY_FILTER_USE_KEY);
+        $query = http_build_query($queryParams);
         $endpoint = "/accounts/{$this->client->getAccountId()}/calls.json";
         if ($query) {
             $endpoint .= '?' . $query;
         }
+
         $response = $this->client->get($endpoint);
-        // CTM returns {"calls": [...]} for list calls
-        return is_array($response) && isset($response['calls']) ? $response['calls'] : $response;
+        // Return full response — caller can extract calls and next_page
+        return is_array($response) ? $response : [];
     }
 
     /**
-     * Get all calls with pagination
+     * Get calls only (no pagination) — use when you want just one page
+     */
+    public function getCallsOnly(array $params = []): array
+    {
+        $response = $this->getCalls($params);
+        return $response['calls'] ?? ($response ?: []);
+    }
+
+    /**
+     * Convert a date string to Unix timestamp
+     * If endOfDay=true, returns timestamp for 23:59:59 of that date
+     */
+    protected function dateToUnix(string $date, bool $endOfDay = false): int
+    {
+        try {
+            $ts = strtotime($date);
+            if ($endOfDay) {
+                $ts = strtotime('23:59:59', $ts);
+            }
+            return $ts;
+        } catch (\Exception $e) {
+            return (int) $date; // assume it's already a timestamp
+        }
+    }
+
+    /**
+     * Extract cursor from next_page URL
+     * CTM returns: /accounts/ID/calls.json?after=<cursor>&other=params
+     */
+    protected function extractCursor(string $nextPage): ?string
+    {
+        if (empty($nextPage)) {
+            return null;
+        }
+        parse_str(parse_url($nextPage, PHP_URL_QUERY) ?? '', $query);
+        return $query['after'] ?? null;
+    }
+
+    /**
+     * Get ALL calls using cursor-based pagination
+     * CTM uses next_page with "after=<cursor>" parameter
+     * Automatically pages until no more next_page is returned
      */
     public function getAllCalls(array $params = []): array
     {
         $allCalls = [];
-        $page = 1;
         $perPage = $params['per_page'] ?? 100;
+        $cursor = $params['after'] ?? null;
+        $maxPages = $params['max_pages'] ?? 500; // safety limit
+        $pageCount = 0;
 
         do {
-            $params['page'] = $page;
-            $params['per_page'] = $perPage;
-            $response = $this->getCalls($params);
+            $requestParams = array_merge($params, ['per_page' => $perPage]);
+            if ($cursor) {
+                $requestParams['after'] = $cursor;
+            }
 
-            if (empty($response)) {
+            $response = $this->getCalls($requestParams);
+            $calls = $response['calls'] ?? [];
+
+            if (empty($calls)) {
                 break;
             }
 
-            $allCalls = array_merge($allCalls, $response);
-            $page++;
-        } while (count($response) === $perPage);
+            $allCalls = array_merge($allCalls, $calls);
+            $pageCount++;
+
+            // Extract next cursor
+            $nextPage = $response['next_page'] ?? null;
+            $cursor = $this->extractCursor($nextPage);
+
+            if (!$cursor) {
+                break; // No more pages
+            }
+
+        } while ($pageCount < $maxPages);
 
         return $allCalls;
     }

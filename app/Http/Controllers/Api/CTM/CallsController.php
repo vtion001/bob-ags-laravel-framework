@@ -20,8 +20,9 @@ class CallsController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $params = $request->only(['per_page', 'page', 'status', 'direction', 'from_date', 'to_date']);
-            $calls = $this->ctm->calls->getCalls($params);
+            $params = $request->only(['per_page', 'status', 'direction', 'from_date', 'to_date', 'after']);
+            // Single page: use getCallsOnly to get just the calls array
+            $calls = $this->ctm->calls->getCallsOnly($params);
             $transformed = Transformer::transformCalls($calls);
             return response()->json(['data' => $transformed]);
         } catch (\Exception $e) {
@@ -93,7 +94,7 @@ class CallsController extends Controller
     public function history(Request $request): JsonResponse
     {
         try {
-            $params = $request->only(['per_page', 'from_date', 'to_date']);
+            $params = $request->only(['per_page', 'from_date', 'to_date', 'after']);
             $calls = $this->ctm->calls->getAllCalls($params);
             $transformed = Transformer::transformCalls($calls);
             return response()->json(['data' => $transformed]);
@@ -123,7 +124,7 @@ class CallsController extends Controller
     public function bulkSync(Request $request): JsonResponse
     {
         try {
-            $params = $request->only(['per_page', 'from_date', 'to_date']);
+            $params = $request->only(['per_page', 'from_date', 'to_date', 'after']);
             $calls = $this->ctm->calls->getAllCalls($params);
             $transformed = Transformer::transformCalls($calls);
             return response()->json(['data' => $transformed, 'count' => count($transformed)]);
