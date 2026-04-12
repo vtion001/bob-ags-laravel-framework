@@ -1,5 +1,6 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { createRoot } from 'react-dom/client';
+import { AuthProvider } from './contexts/AuthContext';
 
 createInertiaApp({
     resolve: (name) => {
@@ -7,6 +8,10 @@ createInertiaApp({
         return pages[`./pages/${name}.tsx`]();
     },
     setup({ el, App, props }) {
-        createRoot(el).render(<App {...props} />);
+        createRoot(el).render(
+            <AuthProvider>
+                <App {...props} />
+            </AuthProvider>
+        );
     },
 });

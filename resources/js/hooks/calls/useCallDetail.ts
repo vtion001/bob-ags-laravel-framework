@@ -65,7 +65,8 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
 
   const storeAnalysisToSupabase = useCallback(async (analysisData: AnalysisResult) => {
     try {
-      const res = await fetch('/api/calls', { credentials: 'include' }), {
+      const res = await fetch('/api/calls', {
+        credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -81,7 +82,7 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
           }],
         }),
       })
-      if (!res.ok) console.warn('Failed to store analysis to Supabase')
+      if (!res.ok) console.warn('Failed to store analysis')
     } catch (err) {
       console.warn('Failed to store analysis to Supabase:', err)
     }
@@ -151,7 +152,8 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
   const handleAnalyze = useCallback(async (): Promise<boolean> => {
     setIsAnalyzing(true)
     try {
-      const res = await fetch('/api/ctm/calls/analyze', { credentials: 'include' }), {
+      const res = await fetch('/api/ctm/calls/analyze', {
+        credentials: 'include',
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ callIds: [callId] }),
@@ -250,7 +252,8 @@ export function useCallDetail(callId: string): UseCallDetailReturn {
         }
 
         if (!hasCachedAnalysis) {
-          await fetch('/api/calls', { credentials: 'include' }), {
+          await fetch('/api/calls', {
+            credentials: 'include',
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ calls: [ctmCall] }),

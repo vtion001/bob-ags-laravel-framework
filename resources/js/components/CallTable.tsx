@@ -384,7 +384,7 @@ export default function CallTable({ calls, onCallClick, pageSize = 25, showPagin
                     </td>
                     <td className="px-4 py-3.5">
                       <Link
-                        href={`/dashboard/calls/${call.id}`}
+                        href={`/call-detail/${call.id}`}
                         className="text-sm font-semibold text-navy-900 hover:text-navy-600 hover:underline"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -421,7 +421,7 @@ export default function CallTable({ calls, onCallClick, pageSize = 25, showPagin
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <Link
-                        href={`/dashboard/calls/${call.id}`}
+                        href={`/call-detail/${call.id}`}
                         className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-navy-100 text-navy-600 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-navy-200 hover:text-navy-900"
                         onClick={(e) => e.stopPropagation()}
                       >

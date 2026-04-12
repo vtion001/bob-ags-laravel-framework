@@ -14,9 +14,6 @@ class LiveCallsController extends Controller
     protected CTMFacade $ctm;
     protected SupabaseClient $supabase;
 
-    // Admin detection
-    private const DEV_EMAIL = 'agsdev@allianceglobalsolutions.com';
-
     public function __construct()
     {
         $this->ctm = new CTMFacade();
@@ -30,12 +27,8 @@ class LiveCallsController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $user = $request->attributes->get('user');
-            $userEmail = $user['email'] ?? '';
-            $userRole = $user['role'] ?? $user['user_metadata']['role'] ?? '';
-
-            // Check if user is admin
-            $isAdmin = ($userEmail === self::DEV_EMAIL || $userRole === 'admin');
+            $authUser = $request->user();
+            $isAdmin = ($authUser && ($authUser->role === 'admin' || $authUser->is_god));
 
             $status = $request->input('status', 'in_progress');
             $hours = $request->input('hours', 1);
@@ -62,7 +55,7 @@ class LiveCallsController extends Controller
             $assignedAgentId = null;
 
             if (!$isAdmin) {
-                $userId = $user['id'] ?? null;
+                $userId = $authUser?->id;
 
                 if ($userId) {
                     // Get user settings
@@ -111,7 +104,7 @@ class LiveCallsController extends Controller
                     'isAdmin' => $isAdmin,
                     'assignedGroupId' => $assignedGroupId,
                     'assignedAgentId' => $assignedAgentId,
-                    'userEmail' => $userEmail,
+                    'userEmail' => $authUser?->email,
                     'status' => $status,
                 ]
             ]);

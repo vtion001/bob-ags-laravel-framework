@@ -30,9 +30,15 @@ class AgentsService
 
             // CTM returns {"page":1,"per_page":100,"total_entries":198,"agents":[...]}
             $agents = $response['agents'] ?? $response;
+            if (empty($agents)) {
+                break;
+            }
+
             $allAgents = array_merge($allAgents, $agents);
             $page++;
-        } while (count($agents) === $perPage);
+
+            // Stop if we got fewer than perPage (last page)
+        } while (count($agents) >= $perPage);
 
         return $allAgents;
     }

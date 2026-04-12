@@ -26,8 +26,8 @@ Route::middleware('auth:sanctum')->prefix('ctm')->group(function () {
     Route::get('/live-calls', [App\Http\Controllers\Api\CTM\LiveCallsController::class, 'index']);
 });
 
-// GodView API routes
-Route::middleware('auth:sanctum')->prefix('godview')->group(function () {
+// GodView API routes — requires is_god = true
+Route::middleware(['auth:sanctum', 'godview.admin'])->prefix('godview')->group(function () {
     Route::get('/data', [App\Http\Controllers\GodViewController::class, 'data']);
     Route::get('/stats', [App\Http\Controllers\GodViewController::class, 'stats']);
     Route::post('/clear', [App\Http\Controllers\GodViewController::class, 'clear']);

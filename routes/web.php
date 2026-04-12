@@ -25,8 +25,8 @@ Route::middleware('auth')->group(function () {
     Route::get('qa-logs', [DashboardController::class, 'qaLogs'])->name('qa-logs');
 });
 
-// GodView routes
-Route::middleware('auth')->group(function () {
+// GodView routes — requires is_god = true
+Route::middleware(['auth', 'godview.admin'])->group(function () {
     Route::get('godview', [App\Http\Controllers\GodViewController::class, 'index'])->name('godview');
 });
 

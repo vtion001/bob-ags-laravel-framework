@@ -54,10 +54,10 @@ export function useLiveAnalysis(options: UseLiveAnalysisOptions = {}): UseLiveAn
     startingRef.current = true;
 
     try {
-      const apiKey = process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY;
+      const apiKey = import.meta.env.VITE_ASSEMBLYAI_API_KEY;
 
       if (!apiKey) {
-        const errMsg = "AssemblyAI API key not configured. Check NEXT_PUBLIC_ASSEMBLYAI_API_KEY in your environment variables.";
+        const errMsg = "AssemblyAI API key not configured. Check VITE_ASSEMBLYAI_API_KEY in your environment variables.";
         setError(errMsg);
         onErrorRef.current?.(errMsg);
         return;

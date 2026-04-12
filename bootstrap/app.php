@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
+            'godview.admin' => \App\Http\Middleware\EnsureGodViewAccess::class,
         ]);
 
         $middleware->web(append: [
