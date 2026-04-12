@@ -26,21 +26,9 @@ class CtmPeriodicSync implements ShouldQueue
         $triggerResult = $fastApi->triggerSync();
         Log::info('[CtmPeriodicSync] Trigger result: ' . json_encode($triggerResult));
 
+        // FastAPI sync runs in the background — do not block the queue worker
         if (isset($triggerResult['job_id'])) {
-            $jobId = $triggerResult['job_id'];
-            // Poll for completion (up to 5 minutes)
-            $maxWait = 300;
-            $waited = 0;
-            while ($waited < $maxWait) {
-                sleep(10);
-                $waited += 10;
-                $status = $fastApi->getSyncStatus($jobId);
-                $jobStatus = $status['status'] ?? null;
-                Log::info("[CtmPeriodicSync] Job status: {$jobStatus}");
-                if ($jobStatus === 'completed' || $jobStatus === 'failed') {
-                    break;
-                }
-            }
+            Log::info('[CtmPeriodicSync] FastAPI sync job_id: ' . $triggerResult['job_id']);
         }
 
         // 2. Invalidate agents cache so next request fetches fresh
@@ -54,7 +42,7 @@ class CtmPeriodicSync implements ShouldQueue
 
     protected function syncAgentProfiles(): void
     {
-        $fastApi = new FastApiService();
+        $fastApi = app(FastApiService::class);
         $response = $fastApi->get('ctm/agents');
 
         $agents = $response['data']['agents'] ?? $response['agents'] ?? [];

@@ -22,11 +22,14 @@ This is a **hybrid Laravel + FastAPI application** for call tracking and quality
 │   ├── Http/Controllers/
 │   │   ├── Api/CTM/          # CTM API controllers (proxy to FastAPI)
 │   │   └── Auth/             # Laravel Breeze auth controllers
+│   ├── Jobs/                 # Queued jobs (CtmPeriodicSync)
+│   ├── Console/Commands/     # Artisan commands (CtmPeriodicSyncCommand)
 │   ├── Livewire/Dashboard/   # Livewire components (legacy dashboard)
 │   ├── Models/               # Eloquent models
 │   └── Services/
 │       ├── CTM/              # CTM API integration services
-│       └── Database/         # Supabase client
+│       ├── Database/         # Supabase client
+│       └── GodView/          # Activity logging service
 ├── config/
 │   └── services.php          # Third-party credentials (CTM, Supabase, etc.)
 ├── database/
@@ -34,8 +37,8 @@ This is a **hybrid Laravel + FastAPI application** for call tracking and quality
 │   └── seeders/              # Database seeders
 ├── fastapi/                  # Python FastAPI backend
 │   ├── app/
-│   │   ├── routers/          # API routes (agents, calls, active_calls, live_calls)
-│   │   ├── services/         # Redis caching, CTM client
+│   │   ├── routers/          # API routes (agents, calls, active_calls, live_calls, sync)
+│   │   ├── services/         # Redis caching, CTM client, sync service
 │   │   └── models/           # Pydantic models
 │   └── config.py             # FastAPI settings
 ├── resources/js/
@@ -44,6 +47,7 @@ This is a **hybrid Laravel + FastAPI application** for call tracking and quality
 │   │   ├── dashboard/        # Dashboard-specific components
 │   │   ├── call-detail/      # Call detail panel components
 │   │   └── monitor/          # Live monitoring components
+│   ├── contexts/             # React contexts (AuthContext)
 │   ├── hooks/                # Custom React hooks (dashboard, monitor, calls)
 │   ├── lib/
 │   │   ├── api/              # API client utilities
@@ -100,23 +104,33 @@ docker compose build <service>
 docker compose up -d <service>
 ```
 
+### Docker Internal Architecture
+
+The `app` container runs **both PHP-FPM and Nginx** in the same container, managed by **supervisor**:
+- Nginx proxies `/js/` and `/css/` requests to the Vite dev server for HMR
+- PHP requests route to PHP-FPM at `127.0.0.1:9000`
+- Static assets are cached for 1 year
+
 ### Laravel (PHP)
 
 ```bash
-# Run Laravel server only
-docker compose exec app php artisan serve
-
-# Queue worker
-docker compose exec app php artisan queue:listen --tries=1
-
 # Run migrations
 docker compose exec app php artisan migrate
+
+# CTM periodic sync (dispatch to queue)
+docker compose exec app php artisan ctm:periodic-sync
+
+# CTM periodic sync (run synchronously)
+docker compose exec app php artisan ctm:periodic-sync --sync
 
 # Run tests
 docker compose exec app php artisan test
 
 # Run specific test
 docker compose exec app php artisan test --filter=TestName
+
+# PHP code formatting (Laravel Pint is available)
+docker compose exec app ./vendor/bin/pint
 
 # Clear caches
 docker compose exec app php artisan cache:clear
@@ -158,6 +172,8 @@ docker compose exec app ./vendor/bin/phpunit tests/Feature/ExampleTest.php
 docker compose exec app ./vendor/bin/phpunit --coverage-html coverage
 ```
 
+Tests run against an in-memory SQLite database (configured in `phpunit.xml`). No linting tools (ESLint, Prettier, flake8) are configured — PHP formatting only via Laravel Pint.
+
 ## Architecture Notes
 
 ### API Flow
@@ -166,6 +182,8 @@ docker compose exec app ./vendor/bin/phpunit --coverage-html coverage
 2. **Laravel → FastAPI** (`services.ctm.access_key/secret_key`): Proxies CTM requests with caching
 3. **FastAPI → CTM API**: Fetches data from Call Tracking Metrics, caches in Redis
 
+There is also a `/api/sync` router in FastAPI that triggers background syncs and invalidates Redis cache. Laravel calls this via `app/Services/FastApiService.php`.
+
 ### Key API Controllers
 
 - `app/Http/Controllers/Api/CTM/CallsController.php` - Call history, transcripts, recordings
@@ -173,22 +191,53 @@ docker compose exec app ./vendor/bin/phpunit --coverage-html coverage
 - `app/Http/Controllers/Api/CTM/ActiveCallsController.php` - Live active calls
 - `app/Http/Controllers/Api/CTM/LiveCallsController.php` - Real-time call monitoring
 
+### Services Layer
+
+```
+BobApiService.php          → External Bob API (HTTP requests)
+FastApiService.php         → FastAPI backend (trigger sync, invalidate cache)
+CTM/CTMFacade.php          → Main facade used by controllers
+CTM/Client.php             → Low-level CTM API HTTP client
+CTM/AgentsService.php      → Agent data domain logic
+CTM/CallsService.php       → Call data domain logic
+CTM/AgentProfileService.php → Agent profile sync logic
+CTM/Transformer.php        → Data transformation utilities
+Database/SupabaseClient.php → Supabase HTTP client
+```
+
 ### CTM Integration
 
 The CTM (Call Tracking Metrics) service is accessed through:
 - **Laravel**: `app/Services/CTM/CTMFacade.php` - PHP client
-- **FastAPI**: `fastapi/app/services/ctm_client.py` - Python client with Redis caching
+- **FastAPI**: `fastapi/app/services/ctm_client.py` - Python async client with Redis caching
 
-Cache TTLs (in FastAPI):
+Cache TTLs (in `fastapi/config.py`):
 - Agents: 5 minutes
 - Calls: 2 minutes
 - Active calls: 30 seconds
+
+FastAPI uses **cursor-based pagination**: the `after` parameter is extracted from CTM's `next_page` URL and passed through to callers.
+
+### Background Jobs
+
+`app/Jobs/CtmPeriodicSync.php` — dispatched via `php artisan ctm:periodic-sync`:
+- Syncs CTM data to local database
+- 3 retry attempts with 60-second backoff
+- Queue driver is `redis` (set in `.env`)
+- Run synchronously with `--sync` flag for debugging
+
+### Models
+
+- **User** — Has `role` (default: `'viewer'`) and `is_god` (boolean, enables GodView toolbar)
+- **AgentProfile** — Synced from CTM; has `getNames()` and `matchesName()` helper methods
+- **ActivityLog** — Activity tracking with named scopes: `requests`, `queries`, `errors`, `events`, `ofType`, `recent`, `forUser`
 
 ### Auth Flow
 
 - Laravel Sanctum for API authentication
 - Breeze for web auth (Inertia + React)
 - Supabase for additional database operations
+- `HandleInertiaRequests.php` middleware shares `auth` user data and `is_god` flag to all Inertia pages
 
 ### Frontend Data Fetching
 
@@ -197,6 +246,8 @@ React hooks in `resources/js/hooks/dashboard/` handle data fetching:
 - `useCallHistory.ts` - Call history with filters
 - `useAgentProfiles.ts` - Agent profile data
 - `useMonitorPage.ts` - Live monitoring
+
+`resources/js/contexts/AuthContext.tsx` provides global auth state: `email`, `agents`, `userGroups`, `isAdmin`, `isLoading`, `isReady`.
 
 ### Real-time Features
 
@@ -220,9 +271,20 @@ SUPABASE_SERVICE_ROLE_KEY=
 # FastAPI
 FASTAPI_URL=http://localhost:8000
 
-# Redis (for FastAPI caching)
+# Redis (for FastAPI caching and queue)
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
+
+# AI / document processing
+OPENROUTER_API_KEY=      # OpenRouter for AI analysis features
+DOCLING_SERVICE_URL=     # External document processing service
+
+# OAuth (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+
+# Sanctum (required for SPA auth across domains)
+SANCTUM_STATEFUL_DOMAINS=localhost:8080
 ```
 
 ## Notes
@@ -281,12 +343,7 @@ proxy: {
 **`docker compose build vite` does NOT run `npm run build`.** It only copies source files and installs dependencies. The production build must be run separately:
 
 ```bash
-# Option 1: Build inside container, copy to host
-docker compose exec vite npm run build
-docker cp $(docker compose ps -q vite):/app/public/build/. public/build/
-docker compose restart app
-
-# Option 2: Full rebuild flow
+# Build inside container, copy to host
 docker compose exec vite npm run build
 docker cp $(docker compose ps -q vite):/app/public/build/. public/build/
 docker compose restart app

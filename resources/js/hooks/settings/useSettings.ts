@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import {
   CTMAssignment,
   UserSettings,
@@ -71,8 +70,6 @@ export function useSettings(): UseSettingsReturn {
   const [assignmentForm, setAssignmentForm] = useState({ ctmAgentId: '', ctmUserGroupId: '' })
   const [assignmentSaving, setAssignmentSaving] = useState(false)
 
-  const supabase = createClient()
-
   const loadSettings = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -105,18 +102,7 @@ export function useSettings(): UseSettingsReturn {
           
           if (usersRes.ok) {
             const usersData = await usersRes.json()
-            const allUsers = [...(usersData.roles || [])]
-            if (permData.email !== 'agsdev@allianceglobalsolutions.com' && !allUsers.find(u => u.email === 'agsdev@allianceglobalsolutions.com')) {
-              allUsers.unshift({
-                id: 'dev-admin',
-                user_id: 'agsdev@allianceglobalsolutions.com',
-                email: 'agsdev@allianceglobalsolutions.com',
-                role: 'admin',
-                permissions: DEFAULT_PERMISSIONS.admin,
-                created_at: new Date().toISOString(),
-              })
-            }
-            setUsers(allUsers)
+            setUsers(usersData.roles || [])
           }
           
           if (ctmRes.ok) {
@@ -298,13 +284,14 @@ export function useSettings(): UseSettingsReturn {
     
     setIsSaving(true)
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .delete()
-        .eq('user_id', userId)
-      
-      if (error) throw error
-      
+      const res = await fetch(`/api/users/${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      })
+
+      if (!res.ok) throw new Error('Failed to reject user')
+
       setUsers(users.filter(u => u.user_id !== userId))
       
       setSaveMessage('User rejected and removed')

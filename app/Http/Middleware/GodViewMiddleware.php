@@ -36,10 +36,6 @@ class GodViewMiddleware
 
     public function terminate(Request $request, Response $response): void
     {
-        if (!config('app.debug')) {
-            return;
-        }
-
         // Capture response content size
         $contentSize = strlen($response->getContent());
 

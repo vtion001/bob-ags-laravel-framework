@@ -1,8 +1,11 @@
+import logging
 from fastapi import APIRouter, Request, Query, HTTPException
 from app.services.ctm_client import CTMClient
 from app.services.cache import CacheService, cache_key
 from config import get_settings
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 settings = get_settings()
@@ -76,11 +79,19 @@ async def get_calls(
     if cached:
         return cached
 
-    response = await ctm.get(
-        f"/accounts/{ctm.get_account_id()}/calls.json",
-        params=params
-    )
-    result = {"data": response.get("calls", response), "next_cursor": extract_cursor(response.get("next_page"))}
+    try:
+        response = await ctm.get(
+            f"/accounts/{ctm.get_account_id()}/calls.json",
+            params=params
+        )
+    except Exception as e:
+        logger.error(f"CTM calls fetch failed: {e}")
+        raise HTTPException(status_code=503, detail="CTM service unavailable")
+
+    result = {
+        "data": response.get("calls", response) if isinstance(response, dict) else response,
+        "next_cursor": extract_cursor(response.get("next_page") if isinstance(response, dict) else None),
+    }
     await cache.set(key, result, settings.cache_ttl_calls)
     return result
 
@@ -117,10 +128,14 @@ async def get_calls_history(
 
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = await ctm.get(
-            f"/accounts/{ctm.get_account_id()}/calls.json",
-            params=params
-        )
+        try:
+            response = await ctm.get(
+                f"/accounts/{ctm.get_account_id()}/calls.json",
+                params=params
+            )
+        except Exception as e:
+            logger.error(f"CTM calls history fetch failed (page {page_count}): {e}")
+            raise HTTPException(status_code=503, detail="CTM service unavailable")
 
         calls = response.get("calls", [])
         if not calls:
@@ -151,10 +166,15 @@ async def search_calls(
     if cached:
         return cached
 
-    response = await ctm.get(
-        f"/accounts/{ctm.get_account_id()}/calls.json",
-        params={"phone_number": phone, "hours": hours}
-    )
+    try:
+        response = await ctm.get(
+            f"/accounts/{ctm.get_account_id()}/calls.json",
+            params={"phone_number": phone, "hours": hours}
+        )
+    except Exception as e:
+        logger.error(f"CTM call search failed: {e}")
+        raise HTTPException(status_code=503, detail="CTM service unavailable")
+
     calls = response.get("calls", response) if isinstance(response, dict) else response
     result = {"data": {"calls": calls}}
     await cache.set(key, result, settings.cache_ttl_calls)
@@ -164,14 +184,22 @@ async def search_calls(
 @router.get("/calls/{call_id}")
 async def get_call(request: Request, call_id: str):
     """Get a single call by ID."""
-    response = await ctm.get(f"/accounts/{ctm.get_account_id()}/calls/{call_id}.json")
+    try:
+        response = await ctm.get(f"/accounts/{ctm.get_account_id()}/calls/{call_id}.json")
+    except Exception as e:
+        logger.error(f"CTM get call {call_id} failed: {e}")
+        raise HTTPException(status_code=503, detail="CTM service unavailable")
     return {"data": response}
 
 
 @router.get("/calls/{call_id}/audio")
 async def get_call_audio(request: Request, call_id: str):
     """Get call recording URL."""
-    call = await ctm.get(f"/accounts/{ctm.get_account_id()}/calls/{call_id}.json")
+    try:
+        call = await ctm.get(f"/accounts/{ctm.get_account_id()}/calls/{call_id}.json")
+    except Exception as e:
+        logger.error(f"CTM get call audio {call_id} failed: {e}")
+        raise HTTPException(status_code=503, detail="CTM service unavailable")
     recording_url = call.get("recording_url") or call.get("recording")
     if not recording_url:
         raise HTTPException(status_code=404, detail="No recording available")
@@ -181,5 +209,9 @@ async def get_call_audio(request: Request, call_id: str):
 @router.get("/calls/{call_id}/transcript")
 async def get_call_transcript(request: Request, call_id: str):
     """Get call transcript."""
-    response = await ctm.get(f"/accounts/{ctm.get_account_id()}/calls/{call_id}/transcript")
+    try:
+        response = await ctm.get(f"/accounts/{ctm.get_account_id()}/calls/{call_id}/transcript")
+    except Exception as e:
+        logger.error(f"CTM get transcript {call_id} failed: {e}")
+        raise HTTPException(status_code=503, detail="CTM service unavailable")
     return {"data": {"transcript": response if isinstance(response, str) else response.get("transcript", "")}}

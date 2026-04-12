@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request
+import logging
+from fastapi import APIRouter, Request, HTTPException
 from app.services.ctm_client import CTMClient
 from app.services.cache import CacheService, cache_key
 from config import get_settings
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 settings = get_settings()
 ctm = CTMClient()
@@ -23,10 +25,15 @@ async def get_active_calls(request: Request, status: str = "in_progress", hours:
     if cached:
         return cached
 
-    response = await ctm.get(
-        f"/accounts/{ctm.get_account_id()}/calls.json",
-        params=params
-    )
+    try:
+        response = await ctm.get(
+            f"/accounts/{ctm.get_account_id()}/calls.json",
+            params=params
+        )
+    except Exception as e:
+        logger.error(f"CTM active calls fetch failed: {e}")
+        raise HTTPException(status_code=503, detail="CTM service unavailable")
+
     calls = response.get("calls", response) if isinstance(response, dict) else response
     result = {"data": {"calls": calls}}
     await cache.set(key, result, settings.cache_ttl_active_calls)

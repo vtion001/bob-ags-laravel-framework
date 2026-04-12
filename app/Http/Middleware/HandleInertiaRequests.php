@@ -14,7 +14,8 @@ class HandleInertiaRequests extends Middleware
                 'id' => $request->user()->id,
                 'name' => $request->user()->name,
                 'email' => $request->user()->email,
-                'is_god' => $request->user()->is_god,
+                'role' => $request->user()->role ?? 'viewer',
+                'is_god' => (bool) $request->user()->is_god,
             ] : null,
         ]);
     }

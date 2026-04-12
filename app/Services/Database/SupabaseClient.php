@@ -56,7 +56,8 @@ class SupabaseQueryBuilder
 
     public function where(string $column, string $operator, mixed $value): self
     {
-        $this->filters[] = "$column=$operator=$value";
+        // PostgREST filter format: column=operator.value (e.g. ?user_id=eq.123)
+        $this->filters[$column] = $operator . '.' . urlencode((string) $value);
         return $this;
     }
 
@@ -74,16 +75,26 @@ class SupabaseQueryBuilder
 
     public function insert(array $data): array
     {
-        $uri = "/rest/v1/{$this->table}";
-        $response = $this->httpClient->post($uri, ['json' => $data]);
-        return json_decode($response->getBody()->getContents(), true) ?? [];
+        try {
+            $uri = "/rest/v1/{$this->table}";
+            $response = $this->httpClient->post($uri, ['json' => $data]);
+            return json_decode($response->getBody()->getContents(), true) ?? [];
+        } catch (\Throwable $e) {
+            Log::error('SupabaseClient::insert failed: ' . $e->getMessage(), ['table' => $this->table]);
+            return [];
+        }
     }
 
     public function update(array $data): array
     {
-        $uri = "/rest/v1/{$this->table}";
-        $response = $this->httpClient->patch($uri, ['json' => $data]);
-        return json_decode($response->getBody()->getContents(), true) ?? [];
+        try {
+            $uri = "/rest/v1/{$this->table}";
+            $response = $this->httpClient->patch($uri, ['json' => $data]);
+            return json_decode($response->getBody()->getContents(), true) ?? [];
+        } catch (\Throwable $e) {
+            Log::error('SupabaseClient::update failed: ' . $e->getMessage(), ['table' => $this->table]);
+            return [];
+        }
     }
 
     public function get(): array
@@ -92,17 +103,24 @@ class SupabaseQueryBuilder
         if (!empty($this->selects)) {
             $params['select'] = implode(',', $this->selects);
         }
-        if (!empty($this->filters)) {
-            $params['filter'] = implode(',', $this->filters);
-        }
         if ($this->limit) {
             $params['limit'] = $this->limit;
         }
         if (!empty($this->orderBy)) {
             $params['order'] = implode(',', $this->orderBy);
         }
-        $uri = "/rest/v1/{$this->table}?" . http_build_query($params);
-        $response = $this->httpClient->get($uri);
-        return json_decode($response->getBody()->getContents(), true) ?? [];
+        // PostgREST filters are individual query params (column=operator.value)
+        $params = array_merge($params, $this->filters);
+        try {
+            $uri = "/rest/v1/{$this->table}?" . http_build_query($params);
+            $response = $this->httpClient->get($uri);
+            return json_decode($response->getBody()->getContents(), true) ?? [];
+        } catch (\Throwable $e) {
+            Log::error('SupabaseClient::get failed: ' . $e->getMessage(), [
+                'table' => $this->table,
+                'params' => $params,
+            ]);
+            return [];
+        }
     }
 }

@@ -62,15 +62,16 @@ class CallsService
      */
     protected function dateToUnix(string $date, bool $endOfDay = false): int
     {
-        try {
-            $ts = strtotime($date);
-            if ($endOfDay) {
-                $ts = strtotime('23:59:59', $ts);
-            }
-            return $ts;
-        } catch (\Exception $e) {
-            return (int) $date; // assume it's already a timestamp
+        $ts = strtotime($date);
+        if ($ts === false) {
+            // Not a parseable date string — assume it's already a Unix timestamp
+            return (int) $date;
         }
+        if ($endOfDay) {
+            $eod = strtotime('23:59:59', $ts);
+            return $eod !== false ? $eod : $ts;
+        }
+        return $ts;
     }
 
     /**

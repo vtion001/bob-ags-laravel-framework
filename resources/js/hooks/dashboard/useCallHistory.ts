@@ -89,10 +89,6 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
           const data = await res.json()
           // Laravel returns { data: [...agents...] }
           const agentsData = data.data || []
-          console.log('[useCallHistory] API /api/ctm/agents response:', {
-            agentsCount: agentsData.length,
-            firstAgent: agentsData[0]
-          })
           if (agentsData.length > 0) {
             const mappedAgents = agentsData.map((agent: any) => ({
               id: agent.id || agent.uid?.toString() || '',
@@ -100,7 +96,6 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
               agent_id: agent.uid?.toString() || agent.id || '',
               email: agent.email || '',
             }))
-            console.log('[useCallHistory] Mapped agentProfiles:', mappedAgents.slice(0, 3))
             setAgentProfiles(mappedAgents)
           }
         }
@@ -151,7 +146,7 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
       } else {
         // Poll for new calls — only fetch latest via the history endpoint
         const url = `/api/ctm/calls?limit=200${agentParam}`
-        const res = await fetch(url)
+        const res = await fetch(url, { credentials: 'include' })
         if (!res.ok) throw new Error('Failed to fetch calls')
         const data = await res.json()
         const incoming: Call[] = dedupeCalls(data.data || [])
@@ -180,9 +175,6 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
 
     if (searchQuery) {
       const normalizedQuery = searchQuery.replace(/\D/g, '')
-      console.log('[useCallHistory] Phone search:', { searchQuery, normalizedQuery, totalCalls: results.length })
-      
-      const beforeCount = results.length
       results = results.filter(call => {
         const phoneFields = [
           call.phone,
@@ -197,88 +189,23 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
           const normalizedField = field.replace(/\D/g, '')
           return normalizedField.includes(normalizedQuery)
         })
-        if (matches) {
-          console.log('[useCallHistory] Matched call:', {
-            id: call.id,
-            phone: call.phone,
-            callerNumber: call.callerNumber,
-            trackingNumber: call.trackingNumber,
-            matchedField: phoneFields.find(f => f?.replace(/\D/g, '').includes(normalizedQuery))
-          })
-        }
         return matches
       })
-      console.log('[useCallHistory] Phone search results:', { before: beforeCount, after: results.length })
     }
 
     if (analyzedOnly) {
       results = results.filter(call => call.score !== undefined && call.score !== null && call.score > 0)
     }
 
-    // DEBUG: Log group filter state
-    console.log('[useCallHistory] Group filter DEBUG:', {
-      groupFilter,
-      userGroupsCount: userGroups.length,
-      userGroups: userGroups.map(g => ({ id: g.id, name: g.name, userIds: g.userIds })),
-      agentProfilesCount: agentProfiles.length,
-      totalCalls: allCalls.length,
-      hasGroupFilter: !!groupFilter
-    })
-
     if (groupFilter) {
       const group = userGroups.find(g => g.id === groupFilter)
-      console.log('[useCallHistory] Selected group:', group)
-      
       if (group) {
-        const callsWithAgentData = allCalls.filter(call => {
-          // The API returns CallAPIResponse with flat agentId field, not call.agent object
-          const callAgentId = (call as any).agentId ?? call.agent?.id ?? ''
-          return callAgentId && callAgentId !== ''
-        })
-        console.log('[useCallHistory] Calls with agentId:', {
-          count: callsWithAgentData.length,
-          sample: callsWithAgentData.slice(0, 2).map(c => ({
-            id: c.id,
-            agentId: (c as any).agentId,
-            agentObjId: c.agent?.id,
-            agentName: c.agent?.name ?? (c as any).agentName
-          }))
-        })
-
         results = results.filter(call => {
-          // Try both call.agent?.id (for Call type) and call.agentId (for CallAPIResponse)
           const callAgentId = (call as any).agentId ?? call.agent?.id ?? ''
-          
-          console.log('[useCallHistory] Filtering call:', {
-            callId: call.id,
-            'call.agent': call.agent,
-            'call.agent?.id': call.agent?.id,
-            'call.agentId (from API)': (call as any).agentId,
-            callAgentId,
-            agentProfilesSample: agentProfiles.slice(0, 3).map(a => a.agent_id)
-          })
-
-          // agent_id is stored as uid (number) as string, e.g., "123"
           const matchingAgent = agentProfiles.find(a => a.agent_id === callAgentId)
-          
-          if (!matchingAgent) {
-            console.log('[useCallHistory] No agent match for callAgentId:', callAgentId)
-            return false
-          }
-          
-          console.log('[useCallHistory] Found matching agent:', matchingAgent)
-          
-          // group.userIds contains numbers (uid values), matchingAgent.agent_id is also a string number
+          if (!matchingAgent) return false
           const agentUid = Number(matchingAgent.agent_id)
-          const isInGroup = group.userIds.includes(agentUid)
-          
-          console.log('[useCallHistory] Group membership check:', {
-            agentUid,
-            groupUserIds: group.userIds,
-            isInGroup
-          })
-          
-          return isInGroup
+          return group.userIds.includes(agentUid)
         })
       }
     }
@@ -299,11 +226,6 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
       endDate.setHours(23, 59, 59, 999)
       results = results.filter(call => new Date(call.timestamp) <= endDate)
     }
-
-    console.log('[useCallHistory] Filter results:', {
-      inputCount: allCalls.length,
-      outputCount: results.length
-    })
 
     setFilteredCalls(results)
   }, [allCalls, searchQuery, analyzedOnly, groupFilter, scoreFilter, dateRange, userGroups, agentProfiles])
@@ -333,12 +255,6 @@ export function useCallHistory(options: UseCallHistoryOptions = {}): UseCallHist
       // Laravel returns { data: [...calls...] }
       const searchedCalls: Call[] = dedupeCalls(data.data || [])
       
-      console.log('[useCallHistory] Phone search results:', {
-        searchQuery,
-        normalizedPhone,
-        resultsCount: searchedCalls.length
-      })
-
       if (searchedCalls.length > 0) {
         setAllCalls(searchedCalls)
         setFilteredCalls(searchedCalls)
